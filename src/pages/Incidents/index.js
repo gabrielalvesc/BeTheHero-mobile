@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Image,
@@ -10,15 +10,46 @@ import { useNavigation } from "@react-navigation/native";
 import FeatherIcon from 'react-native-vector-icons/Feather';
 
 import styles from './styles';
+import BaseService from '../../services/service';
 
 import logoImg from '../../assets/logo.png';
 
 export default function Incidents() {
 
+    const [data, setData] = useState([]);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalRecords, setTotalRecords] = useState(0);
+    const [loading, setLoading] = useState(false);
+
     const navigation = useNavigation();
 
-    function navigateTo() {
-        navigation.navigate('Detail');
+    useEffect(() => {
+        getIncidents()
+    }, [])
+
+    function navigateTo(incident) {
+        navigation.navigate('Detail', { incident });
+    }
+
+    async function getIncidents() {
+
+        if(loading) {
+            return;
+        }
+
+        if(totalRecords > 0 && data.length === totalRecords) {
+            return;
+        }
+
+        setLoading(true)
+        const params = {
+            page: currentPage
+        }
+        const response = await BaseService.getAll('incidents/all', params);
+        setData([...data, ...response.data.items]);
+        setTotalRecords(response.data.totalRecords);
+        setCurrentPage(currentPage + 1);
+        setLoading(false)
     }
 
     return (
@@ -26,7 +57,7 @@ export default function Incidents() {
             <View style={styles.header} >
                 <Image source={logoImg} />
                 <Text style={styles.headerText} >
-                    Total de <Text style={styles.headerTextBold}>0 casos</Text>.
+                    Total de <Text style={styles.headerTextBold}>{totalRecords === 1 ? `${totalRecords} caso` : `${totalRecords} casos` }</Text>.
                 </Text>
             </View>
 
@@ -36,21 +67,23 @@ export default function Incidents() {
             </Text>
 
             <FlatList style={styles.incidentsList}
-                data={[1, 2, 3, 4, 5]}
-                keyExtractor={incident => String(incident)}
-                showsVerticalScrollIndicator={false}
-                renderItem={() => (
+                data={data}
+                keyExtractor={incident => String(incident.id)}
+                showsVerticalScrollIndicator={true}
+                onEndReached={getIncidents}
+                onEndReachedThreshold={0.2}
+                renderItem={({ item: incident }) => (
                     <View style={styles.incident} >
                         <Text style={styles.incidentProperty} >ONG:</Text>
-                        <Text style={styles.incidentValue} >APAD</Text>
+                        <Text style={styles.incidentValue} >{ incident.name }</Text>
 
                         <Text style={styles.incidentProperty} >CASO:</Text>
-                        <Text style={styles.incidentValue} >Cadelinha atropelada</Text>
+                        <Text style={styles.incidentValue} >{ incident.title }</Text>
 
                         <Text style={styles.incidentProperty} >VALOR:</Text>
-                        <Text style={styles.incidentValue} >R$ 120,00</Text>
+                        <Text style={styles.incidentValue} >{ Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(incident.value) }</Text>
 
-                        <TouchableOpacity style={styles.detailsButton} onPress={navigateTo} >
+                        <TouchableOpacity style={styles.detailsButton} onPress={() => navigateTo(incident)} >
                             <Text style={styles.detailsButtonText} >Ver mais detalhes</Text>
                             <FeatherIcon name="arrow-right" size={16} color="#e02041" />
                         </TouchableOpacity>
